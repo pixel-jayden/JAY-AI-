@@ -5,7 +5,7 @@ import { GoogleGenAI } from "@google/genai";
 dotenv.config();
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 
 const ai = new GoogleGenAI({
     apiKey: process.env.GEMINI_API_KEY
@@ -82,9 +82,8 @@ app.post("/chat", async (req, res) => {
 
 });
 
-app.listen(PORT, () => {
-    console.log(`JAY AI running at http://localhost:${PORT}`);
+app.listen(PORT, "0.0.0.0", () => {
+    console.log(`JAY AI running on port ${PORT}`);
 });
 
 console.log("Gemini API key loaded:", !!process.env.GEMINI_API_KEY);
-dotenv.config();
