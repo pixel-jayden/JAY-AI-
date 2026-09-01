@@ -37,6 +37,7 @@ body {
     overflow-y: auto;
     z-index: 100;
     flex-shrink: 0;
+    transition: transform 0.2s ease;
 }
 
 .logo{
@@ -73,6 +74,11 @@ body {
 
 .chat-history{
     margin-top: 25px;
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
 }
 
 .history-title{
@@ -81,11 +87,42 @@ body {
     margin-bottom: 10px;
 }
 
+#chatList {
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.chat-item {
+    border: none;
+    background: transparent;
+    text-align: left;
+    padding: 9px 10px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 13.5px;
+    color: #333;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.chat-item:hover {
+    background: #eaeaea;
+}
+
+.chat-item.active {
+    background: #e4e4e4;
+    font-weight: 600;
+}
+
 .sidebar-bottom{
     margin-top: auto;
     display: flex;
     flex-direction: column;
     gap: 5px;
+    padding-top: 12px;
 }
 
 .sidebar-bottom button{
@@ -99,6 +136,21 @@ body {
 
 .sidebar-bottom button:hover{
     background: #eaeaea;
+}
+
+.mobile-menu-toggle {
+    display: none;
+    position: fixed;
+    top: 14px;
+    left: 14px;
+    z-index: 200;
+    width: 38px;
+    height: 38px;
+    border: 1px solid #ddd;
+    background: white;
+    border-radius: 9px;
+    font-size: 16px;
+    cursor: pointer;
 }
 
 .main {
@@ -119,7 +171,7 @@ body {
     padding: 0 25px
 }
 
-.tobbar h2{
+.topbar h2{
     font-size:17px;
 }
 
@@ -208,7 +260,8 @@ textarea {
     flex: 1;
     width: 100%;
     min-width: 0;
-    height: 40px;
+    min-height: 40px;
+    max-height: 200px;
     border: none;
     outline: none;
     resize: none;
@@ -217,6 +270,7 @@ textarea {
     padding: 10px;
     background: transparent;
     line-height: 20px;
+    overflow-y: auto;
 }
 
 .attach,.send{
@@ -225,6 +279,7 @@ textarea {
     border: none;
     border-radius: 10px;
     cursor: pointer;
+    flex-shrink: 0;
 }
 
 .attach{
@@ -242,6 +297,15 @@ textarea {
     background: #333;
 }
 
+.send.stop-mode {
+    background: #dc2626;
+    font-size: 16px;
+}
+
+.send.stop-mode:hover {
+    background: #b91c1c;
+}
+
 .disclamer{
     text-align: center;
     font-size: 11px;
@@ -251,72 +315,33 @@ textarea {
 
 @media (max-width: 700px) {
     .sidebar {
-        display: none;
+        transform: translateX(-100%);
+    }
+    .sidebar.open {
+        transform: translateX(0);
+        box-shadow: 4px 0 20px rgba(0,0,0,0.15);
+    }
+    .mobile-menu-toggle {
+        display: block;
     }
     .main {
         margin-left: 0;
         width: 100%;
+    }
+    .topbar {
+        padding-left: 62px;
     }
     .welcome h1 {
         font-size: 26px;
     }
 }
 
-.message {
-    max-width: 800px;
-    width: 100%;
-    margin: 10px auto;
-    display: flex;
-    gap: 10px;
-}
-
-.user-message {
-    justify-content: flex-end;
-}
-
-.user-bubble {
-    background: #111;
-    color: white;
-    padding: 10px 15px;
-    border-radius: 15px;
-    max-width: 70%;
-    line-height: 1.5;
-}
-
-.ai-message {
-    align-items: flex-start;
-}
-
-.ai-avatar {
-    width: 32px;
-    height: 32px;
-    flex-shrink: 0;
-    background: #111;
-    color: white;
-    border-radius: 9px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: bold;
-}
-
-.ai-text {
-    padding-top: 6px;
-    line-height: 1.6;
-}
-
-.main.chat-active .input-area {
-    margin-top: auto;
-}
-
 .message-row {
     width: 100%;
     max-width: 800px;
     margin: 18px auto;
-
     display: flex;
     gap: 12px;
-
     animation: messageAppear 0.2s ease;
 }
 
@@ -327,16 +352,12 @@ textarea {
 .user-message {
     background: #111;
     color: white;
-
     padding: 11px 16px;
-
     border-radius: 18px 18px 4px 18px;
-
     max-width: 70%;
-
     line-height: 1.5;
-
     word-wrap: break-word;
+    white-space: pre-wrap;
 }
 
 .ai-row {
@@ -364,71 +385,45 @@ textarea {
     width: min(100%, 800px);
     max-width: 800px;
     min-width: 0;
-    padding-top: 5px;
+    background: #f7f7f8;
+    border: 1px solid #eee;
+    border-radius: 4px 16px 16px 16px;
+    padding: 14px 18px;
     line-height: 1.65;
     color: #222;
-    white-space: normal;
     word-wrap: break-word;
     overflow-wrap: anywhere;
-    columns: auto !important;
-    column-count: 1 !important;
-    column-width: auto !important;
 }
 
-.thinking {
+/* ---------- Typing indicator ---------- */
+
+.typing-indicator {
     display: flex;
     align-items: center;
-
-    gap: 4px;
-
-    padding: 12px 4px;
+    gap: 6px;
+    color: #888;
+    font-size: 14px;
 }
 
-.thinking span {
-    width: 7px;
-    height: 7px;
-
+.typing-indicator .dot {
+    width: 6px;
+    height: 6px;
     background: #999;
-
     border-radius: 50%;
-
     animation: thinking 1.2s infinite ease-in-out;
 }
 
-.thinking span:nth-child(2) {
-    animation-delay: 0.15s;
-}
-
-.thinking span:nth-child(3) {
-    animation-delay: 0.3s;
-}
+.typing-indicator .dot:nth-child(3) { animation-delay: 0.15s; }
+.typing-indicator .dot:nth-child(4) { animation-delay: 0.3s; }
 
 @keyframes thinking {
-
-    0%, 60%, 100% {
-        transform: translateY(0);
-        opacity: 0.4;
-    }
-
-    30% {
-        transform: translateY(-5px);
-        opacity: 1;
-    }
-
+    0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+    30% { transform: translateY(-4px); opacity: 1; }
 }
 
 @keyframes messageAppear {
-
-    from {
-        opacity: 0;
-        transform: translateY(5px);
-    }
-
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-
+    from { opacity: 0; transform: translateY(5px); }
+    to { opacity: 1; transform: translateY(0); }
 }
 
 .send:disabled {
@@ -436,58 +431,94 @@ textarea {
     cursor: not-allowed;
 }
 
-.message-row,
-.ai-row,
-.ai-message {
-    column-count: 1 !important;
-    column-width: auto !important;
-    columns: auto !important;
-}
+/* ---------- Markdown content ---------- */
 
-.ai-message h1,
-.ai-message h2,
-.ai-message h3 {
+.ai-message h1, .ai-message h2, .ai-message h3 {
     margin: 18px 0 8px;
     line-height: 1.3;
 }
-
-.ai-message h1 {
-    font-size: 24px;
+.ai-message h1:first-child, .ai-message h2:first-child, .ai-message h3:first-child {
+    margin-top: 0;
 }
 
-.ai-message h2 {
-    font-size: 21px;
-}
+.ai-message h1 { font-size: 22px; }
+.ai-message h2 { font-size: 19px; }
+.ai-message h3 { font-size: 17px; }
 
-.ai-message h3 {
-    font-size: 18px;
-}
+.ai-message p { margin: 8px 0; }
+.ai-message p:first-child { margin-top: 0; }
+.ai-message p:last-child { margin-bottom: 0; }
 
-.ai-message strong {
-    font-weight: 700;
-}
+.ai-message strong { font-weight: 700; }
+.ai-message em { font-style: italic; }
 
-.ai-message em {
-    font-style: italic;
+.ai-message ul, .ai-message ol {
+    margin: 8px 0 8px 22px;
 }
+.ai-message li { margin: 4px 0; }
 
-.ai-message ul {
-    margin: 10px 0 10px 22px;
-    padding: 0;
-}
-
-.ai-message li {
-    margin: 6px 0;
-}
-
-.ai-divider {
+.ai-message hr {
     border: 0;
     border-top: 1px solid #e5e5e5;
-    margin: 18px 0;
+    margin: 16px 0;
 }
 
-.ai-message h4 {
-    font-size: 16px;
-    margin: 16px 0 6px;
-    line-height: 1.4;
+.ai-message a {
+    color: #2563eb;
+    text-decoration: underline;
+}
+
+.ai-message code {
+    background: #eceef0;
+    padding: 2px 5px;
+    border-radius: 4px;
+    font-size: 0.9em;
+    font-family: "SF Mono", Menlo, Consolas, monospace;
+}
+
+.ai-message pre {
+    position: relative;
+    background: #1e1e1e;
+    border-radius: 10px;
+    padding: 14px 16px;
+    margin: 10px 0;
+    overflow-x: auto;
+}
+
+.ai-message pre code {
+    background: transparent;
+    padding: 0;
+    color: #e5e5e5;
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+.copy-btn {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    background: rgba(255,255,255,0.1);
+    color: #ddd;
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 6px;
+    font-size: 11px;
+    padding: 4px 8px;
+    cursor: pointer;
+}
+
+.copy-btn:hover {
+    background: rgba(255,255,255,0.2);
+}
+
+.ai-message table {
+    border-collapse: collapse;
+    margin: 10px 0;
+    width: 100%;
+    font-size: 14px;
+}
+
+.ai-message th, .ai-message td {
+    border: 1px solid #ddd;
+    padding: 6px 10px;
+    text-align: left;
 }
