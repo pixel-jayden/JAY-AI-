@@ -31,8 +31,8 @@
             </div>
 
             <div class="sidebar-bottom">
-                <button>Settings</button>
-                <button>Profile</button>
+                <button id="settingsButton">Settings</button>
+                <button id="profileButton">Profile</button>
             </div>
         </aside>
 
@@ -48,7 +48,12 @@
                     </span>
                 </div>
 
-                <button class="menu-button">•••</button>
+                <div class="topbar-menu">
+                    <button class="menu-button" id="menuButton" aria-label="Open menu">•••</button>
+                    <div class="menu-dropdown" id="menuDropdown" hidden>
+                        <button id="deleteCurrentChat" class="danger-action">Delete current chat</button>
+                    </div>
+                </div>
             </header>
 
             <section class="messages" id="messages">
