@@ -5,6 +5,15 @@ const newChatButton = document.getElementById("newChat");
 const chatListEl = document.getElementById("chatList");
 const sidebar = document.querySelector(".sidebar");
 const mobileMenuToggle = document.getElementById("mobileMenuToggle");
+const menuButton = document.getElementById("menuButton");
+const menuDropdown = document.getElementById("menuDropdown");
+const deleteCurrentChatButton = document.getElementById("deleteCurrentChat");
+const settingsButton = document.getElementById("settingsButton");
+const profileButton = document.getElementById("profileButton");
+const modalBackdrop = document.getElementById("modalBackdrop");
+const modalClose = document.getElementById("modalClose");
+const modalTitle = document.getElementById("modalTitle");
+const modalContent = document.getElementById("modalContent");
 
 marked.setOptions({ breaks: true });
 
@@ -36,7 +45,23 @@ async function refreshChatList() {
             if (chat.id === currentChatId) item.classList.add("active");
 
             item.addEventListener("click", () => loadChat(chat.id));
-            chatListEl.appendChild(item);
+
+            const deleteButton = document.createElement("button");
+            deleteButton.className = "chat-delete";
+            deleteButton.type = "button";
+            deleteButton.title = "Delete chat";
+            deleteButton.setAttribute("aria-label", "Delete chat");
+            deleteButton.textContent = "×";
+            deleteButton.addEventListener("click", event => {
+                event.stopPropagation();
+                deleteChat(chat.id);
+            });
+
+            const wrapper = document.createElement("div");
+            wrapper.className = "chat-item-wrapper";
+            wrapper.appendChild(item);
+            wrapper.appendChild(deleteButton);
+            chatListEl.appendChild(wrapper);
         });
     } catch (error) {
         console.error("Could not load chats:", error);
@@ -326,3 +351,103 @@ mobileMenuToggle.addEventListener("click", () => {
 function closeMobileSidebar() {
     sidebar.classList.remove("open");
 }
+
+
+async function deleteChat(id) {
+    if (isStreaming) return;
+
+    const chat = await getChatSummary(id);
+    const title = chat?.title || "this chat";
+    if (!window.confirm(`Delete "${title}"? This cannot be undone.`)) return;
+
+    try {
+        const res = await fetch(`/api/chats/${id}`, { method: "DELETE" });
+        if (!res.ok) throw new Error("Failed to delete chat");
+
+        if (currentChatId === id) {
+            currentChatId = null;
+            messagesEl.innerHTML = "";
+            showWelcome();
+            input.value = "";
+            autoResizeTextarea();
+        }
+
+        await refreshChatList();
+        if (currentChatId) setActiveChatItem(currentChatId);
+    } catch (error) {
+        console.error("Could not delete chat:", error);
+        alert("Could not delete the chat. Please try again.");
+    }
+}
+
+async function getChatSummary(id) {
+    try {
+        const res = await fetch(`/api/chats/${id}`);
+        return res.ok ? await res.json() : null;
+    } catch {
+        return null;
+    }
+}
+
+deleteCurrentChatButton.addEventListener("click", async () => {
+    menuDropdown.hidden = true;
+    if (!currentChatId) {
+        alert("There is no active chat to delete.");
+        return;
+    }
+    await deleteChat(currentChatId);
+});
+
+menuButton.addEventListener("click", event => {
+    event.stopPropagation();
+    menuDropdown.hidden = !menuDropdown.hidden;
+});
+
+document.addEventListener("click", event => {
+    if (!event.target.closest(".topbar-menu")) {
+        menuDropdown.hidden = true;
+    }
+});
+
+function openModal(title, content) {
+    modalTitle.textContent = title;
+    modalContent.innerHTML = content;
+    modalBackdrop.hidden = false;
+}
+
+function closeModal() {
+    modalBackdrop.hidden = true;
+}
+
+settingsButton.addEventListener("click", () => {
+    openModal("Settings", `
+        <div class="settings-list">
+            <div><strong>Theme</strong><span>Burgundy #940126 + Charcoal #1c1c1c</span></div>
+            <div><strong>Model</strong><span>JAY AI</span></div>
+            <div><strong>Storage</strong><span>Chats are stored by the JAY AI server.</span></div>
+        </div>
+    `);
+    closeMobileSidebar();
+});
+
+profileButton.addEventListener("click", () => {
+    openModal("Profile", `
+        <div class="profile-card">
+            <div class="profile-avatar">J</div>
+            <h3>JAY AI</h3>
+            <p>Built by Jayden.</p>
+        </div>
+    `);
+    closeMobileSidebar();
+});
+
+modalClose.addEventListener("click", closeModal);
+modalBackdrop.addEventListener("click", event => {
+    if (event.target === modalBackdrop) closeModal();
+});
+document.addEventListener("keydown", event => {
+    if (event.key === "Escape") {
+        closeModal();
+        menuDropdown.hidden = true;
+    }
+});
