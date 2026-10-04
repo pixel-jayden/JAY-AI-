@@ -948,3 +948,46 @@ textarea::placeholder {
 .file-chip[hidden] {
     display: none !important;
 }
+
+
+.chat-loading {
+    display: flex;
+    gap: 5px;
+    padding: 10px 12px;
+}
+
+.chat-loading span {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--cyan);
+    opacity: 0.35;
+    animation: chatLoading 1s infinite ease-in-out;
+}
+
+.chat-loading span:nth-child(2) {
+    animation-delay: 0.15s;
+}
+
+.chat-loading span:nth-child(3) {
+    animation-delay: 0.3s;
+}
+
+@keyframes chatLoading {
+    0%, 60%, 100% {
+        transform: translateY(0);
+        opacity: 0.3;
+    }
+    30% {
+        transform: translateY(-3px);
+        opacity: 1;
+    }
+}
+
+.chat-empty {
+    padding: 10px 12px;
+    color: var(--slate);
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 0.58rem;
+    line-height: 1.5;
+}
