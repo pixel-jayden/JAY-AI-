@@ -57,8 +57,6 @@ async function refreshChatList() {
                 renameChat(chat.id, chat.title || "New chat");
             });
 
-            wrapper.appendChild(renameButton);
-
             const deleteButton = document.createElement("button");
             deleteButton.className = "chat-delete";
             deleteButton.type = "button";
@@ -73,6 +71,7 @@ async function refreshChatList() {
             const wrapper = document.createElement("div");
             wrapper.className = "chat-item-wrapper";
             wrapper.appendChild(item);
+            wrapper.appendChild(renameButton);
             wrapper.appendChild(deleteButton);
             chatListEl.appendChild(wrapper);
         });
