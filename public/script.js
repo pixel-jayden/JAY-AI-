@@ -147,6 +147,9 @@ async function sendMessage() {
     const text = input.value.trim();
     if (!text) return;
 
+    let accumulated = "";
+    let bubble = null;
+
     try {
         if (!currentChatId) {
             const res = await fetch("/api/chats", { method: "POST" });
@@ -163,10 +166,8 @@ async function sendMessage() {
         autoResizeTextarea();
         setStreamingState(true);
 
-        const bubble = addAIMessageContainer();
+        bubble = addAIMessageContainer();
         addTypingLabel(bubble);
-
-        let accumulated = "";
         abortController = new AbortController();
 
         const res = await fetch(`/api/chats/${currentChatId}/stream`, {
@@ -176,7 +177,14 @@ async function sendMessage() {
             signal: abortController.signal
         });
 
-        if (!res.ok || !res.body) throw new Error("Request failed");
+        if (!res.ok || !res.body) {
+            let detail = "Request failed";
+            try {
+                const errorData = await res.json();
+                detail = errorData.error || detail;
+            } catch {}
+            throw new Error(detail);
+        }
 
         const reader = res.body.getReader();
         const decoder = new TextDecoder();
@@ -204,7 +212,7 @@ async function sendMessage() {
             }
         }
 
-        if (!accumulated) bubble.innerHTML = "";
+        if (!accumulated && bubble) bubble.innerHTML = "";
     } catch (error) {
         if (error.name === "AbortError") {
             if (!accumulated) {
@@ -215,9 +223,11 @@ async function sendMessage() {
             }
         } else {
             console.error("Send message error:", error);
-            const lastBubble = messagesEl.querySelector(".ai-row:last-child .ai-message");
-            if (lastBubble) {
-                renderMarkdownInto(lastBubble, "Sorry, something went wrong while connecting to Gemini. 😕");
+            if (bubble) {
+                renderMarkdownInto(
+                    bubble,
+                    "Sorry, something went wrong while connecting to JAY AI. Please try again."
+                );
             }
         }
     } finally {
