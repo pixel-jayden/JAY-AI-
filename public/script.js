@@ -277,6 +277,9 @@ async function sendMessage() {
                     accumulated += parsed.data.text || "";
                     renderMarkdownInto(bubble, accumulated);
                     scrollToBottom();
+                } else if (parsed.event === "sources") {
+                    renderSourcesInto(bubble, parsed.data.sources || []);
+                    scrollToBottom();
                 } else if (parsed.event === "error") {
                     renderMarkdownInto(bubble, parsed.data.error || "JAY AI could not complete that request.");
                 }
@@ -503,6 +506,47 @@ function renderMarkdownInto(bubble, markdownText) {
         hljs.highlightElement(block);
         addCopyButton(block);
     });
+}
+
+function renderSourcesInto(bubble, sources) {
+    if (!sources.length) return;
+
+    const validSources = sources.filter(source => {
+        try {
+            return /^https?:\\/\\//i.test(source.url) && source.title;
+        } catch {
+            return false;
+        }
+    });
+
+    if (!validSources.length) return;
+
+    const existing = bubble.querySelector(".web-sources");
+    if (existing) existing.remove();
+
+    const section = document.createElement("div");
+    section.className = "web-sources";
+
+    const title = document.createElement("div");
+    title.className = "web-sources-title";
+    title.textContent = "Web sources";
+    section.appendChild(title);
+
+    const list = document.createElement("div");
+    list.className = "web-sources-list";
+
+    validSources.forEach(source => {
+        const link = document.createElement("a");
+        link.className = "web-source";
+        link.href = source.url;
+        link.target = "_blank";
+        link.rel = "noopener noreferrer";
+        link.textContent = source.title;
+        list.appendChild(link);
+    });
+
+    section.appendChild(list);
+    bubble.appendChild(section);
 }
 
 function addCopyButton(codeBlock) {
