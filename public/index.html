@@ -74,7 +74,9 @@
 
             <div class="input-area">
                 <div class="input-box">
-                    <button class="attach">+</button>
+                    <input id="fileInput" type="file" hidden accept=".pdf,.txt,.md,.csv,.json,.png,.jpg,.jpeg,.webp,application/pdf,text/plain,text/markdown,text/csv,application/json,image/png,image/jpeg,image/webp">
+                    <button class="attach" id="attachButton" type="button" aria-label="Attach a file">+</button>
+                    <span class="file-chip" id="fileChip" hidden></span>
                     <textarea id="messageInput" placeholder="Message JAY AI..." rows="1"></textarea>
                     <button class="send" id="sendButton">↑</button>
                 </div>
