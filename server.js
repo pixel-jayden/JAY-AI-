@@ -5,6 +5,7 @@ import fs from "fs/promises";
 import path from "path";
 import { GoogleGenAI } from "@google/genai";
 import pg from "pg";
+import mammoth from "mammoth";
 
 dotenv.config();
 
@@ -439,13 +440,20 @@ app.post("/api/chats/:id/analyze-file", async (req, res, next) => {
         if (!chat) return res.status(404).json({ error: "Chat not found" });
 
         const allowedTypes = new Set([
-            "application/pdf", "text/plain", "text/markdown", "application/json",
-            "text/csv", "image/png", "image/jpeg", "image/webp"
+            "application/pdf",
+            "text/plain",
+            "text/markdown",
+            "application/json",
+            "text/csv",
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            "image/png",
+            "image/jpeg",
+            "image/webp"
         ]);
 
         if (!allowedTypes.has(mimeType)) {
             return res.status(415).json({
-                error: "That file type is not supported yet. Try PDF, TXT, MD, CSV, JSON, PNG, JPG, or WEBP."
+                error: "That file type is not supported yet. Try PDF, DOCX, TXT, MD, CSV, JSON, PNG, JPG, or WEBP."
             });
         }
 
@@ -456,12 +464,48 @@ app.post("/api/chats/:id/analyze-file", async (req, res, next) => {
         const base64 = data.includes(",") ? data.split(",")[1] : data;
         const parts = [{ text: cleanPrompt }];
 
-        if (mimeType.startsWith("text/") || mimeType === "application/json") {
+        if (
+            mimeType.startsWith("text/") ||
+            mimeType === "application/json"
+        ) {
             const textContent = Buffer.from(base64, "base64").toString("utf8");
+
             if (textContent.length > 200_000) {
                 return res.status(413).json({ error: "That text file is too large to analyze." });
             }
-            parts.push({ text: `FILE CONTENT (filename: ${name}):\n\n${textContent}` });
+
+            parts.push({
+                text: `FILE CONTENT (filename: ${name}):\n\n${textContent}`
+            });
+        } else if (mimeType === "application/vnd.openxmlformats-officedocument.wordprocessingml.document") {
+            let docxBuffer;
+
+            try {
+                docxBuffer = Buffer.from(base64, "base64");
+                const result = await mammoth.extractRawText({ buffer: docxBuffer });
+                const textContent = result.value.trim();
+
+                if (!textContent) {
+                    return res.status(422).json({
+                        error: "I couldn't extract readable text from that DOCX file."
+                    });
+                }
+
+                if (textContent.length > 200_000) {
+                    return res.status(413).json({
+                        error: "That DOCX file contains too much text to analyze at once."
+                    });
+                }
+
+                parts.push({
+                    text: `DOCUMENT CONTENT (filename: ${name}):\n\n${textContent}`
+                });
+            } catch (error) {
+                console.error("DOCX extraction error:", error);
+                return res.status(422).json({
+                    error: "I couldn't read that DOCX document."
+                });
+            }
         } else {
             parts.push({ inlineData: { mimeType, data: base64 } });
         }
