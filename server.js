@@ -605,8 +605,7 @@ app.post("/api/chats/:id/stream", async (req, res, next) => {
                 model: "gemini-3.6-flash",
                 contents,
                 config: {
-                    systemInstruction: SYSTEM_INSTRUCTION,
-                    tools: [{ googleSearch: {} }]
+                    systemInstruction: SYSTEM_INSTRUCTION
                 }
             });
 
