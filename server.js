@@ -112,6 +112,33 @@ app.post("/api/chats", async (req, res) => {
     res.status(201).json(db.chats[id]);
 });
 
+app.patch("/api/chats/:id", async (req, res) => {
+    const db = await loadChats();
+    const chat = db.chats[req.params.id];
+
+    if (!chat) {
+        return res.status(404).json({ error: "Chat not found" });
+    }
+
+    const title = typeof req.body?.title === "string"
+        ? req.body.title.trim().replace(/\\s+/g, " ")
+        : "";
+
+    if (!title) {
+        return res.status(400).json({ error: "A chat title is required" });
+    }
+
+    if (title.length > 80) {
+        return res.status(400).json({ error: "Chat title must be 80 characters or fewer" });
+    }
+
+    chat.title = title;
+    chat.updatedAt = Date.now();
+    await saveChats(db);
+
+    res.json(summarize(chat));
+});
+
 app.delete("/api/chats/:id", async (req, res) => {
     const db = await loadChats();
     const chat = db.chats[req.params.id];
