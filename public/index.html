@@ -76,7 +76,14 @@
                 <div class="input-box">
                     <input id="fileInput" type="file" hidden accept=".pdf,.txt,.md,.csv,.json,.png,.jpg,.jpeg,.webp,application/pdf,text/plain,text/markdown,text/csv,application/json,image/png,image/jpeg,image/webp">
                     <button class="attach" id="attachButton" type="button" aria-label="Attach a file">+</button>
-                    <span class="file-chip" id="fileChip" hidden></span>
+                    <div class="file-chip" id="fileChip" hidden>
+                        <span class="file-icon" id="fileIcon">📎</span>
+                        <div class="file-details">
+                            <span class="file-name" id="fileName"></span>
+                            <span class="file-size" id="fileSize"></span>
+                        </div>
+                        <button class="file-remove" id="fileRemove" type="button" aria-label="Remove attachment" title="Remove attachment">×</button>
+                    </div>
                     <textarea id="messageInput" placeholder="Message JAY AI..." rows="1"></textarea>
                     <button class="send" id="sendButton">↑</button>
                 </div>
