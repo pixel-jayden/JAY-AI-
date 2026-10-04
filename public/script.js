@@ -38,12 +38,25 @@ async function init() {
 }
 
 async function refreshChatList() {
+    chatListEl.classList.add("is-loading");
+    if (!chatListEl.children.length) {
+        chatListEl.innerHTML = `
+            <div class="chat-loading" aria-hidden="true">
+                <span></span><span></span><span></span>
+            </div>
+        `;
+    }
+
     try {
         const res = await fetch("/api/chats");
         if (!res.ok) throw new Error("Failed to load chats");
         const chats = await res.json();
 
         chatListEl.innerHTML = "";
+
+        if (!chats.length) {
+            chatListEl.innerHTML = `<p class="chat-empty">No chats yet</p>`;
+        }
 
         chats.forEach(chat => {
             const item = document.createElement("button");
@@ -86,6 +99,9 @@ async function refreshChatList() {
         });
     } catch (error) {
         console.error("Could not load chats:", error);
+        chatListEl.innerHTML = `<p class="chat-empty">Couldn’t load chats</p>`;
+    } finally {
+        chatListEl.classList.remove("is-loading");
     }
 }
 
