@@ -889,3 +889,8 @@ textarea::placeholder {
 @media (max-width: 600px) {
     .file-chip { max-width: 140px; }
 }
+
+
+.file-chip[hidden] {
+    display: none !important;
+}
