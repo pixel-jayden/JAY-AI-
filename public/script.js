@@ -134,7 +134,7 @@ newChatButton.addEventListener("click", async () => {
 function showWelcome() {
     messagesEl.innerHTML = `
         <div class="welcome">
-            <div class="ai-logo">J</div>
+            <img class="ai-logo" src="logo.png" alt="JAY AI logo">
             <h1>How can I help?</h1>
             <p>Ask JAY AI anything. Build something, learn something, or just have a conversation.</p>
         </div>
@@ -422,9 +422,10 @@ function closeModal() {
 settingsButton.addEventListener("click", () => {
     openModal("Settings", `
         <div class="settings-list">
-            <div><strong>Theme</strong><span>Burgundy #940126 + Charcoal #1c1c1c</span></div>
+            <div><strong>Interface</strong><span>Ink + Cyan editorial theme</span></div>
             <div><strong>Model</strong><span>JAY AI</span></div>
-            <div><strong>Storage</strong><span>Chats are stored by the JAY AI server.</span></div>
+            <div><strong>Storage</strong><span>Server-side chat storage</span></div>
+            <div><strong>Status</strong><span>Online</span></div>
         </div>
     `);
     closeMobileSidebar();
