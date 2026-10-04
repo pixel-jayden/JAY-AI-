@@ -327,7 +327,7 @@ function summarize(chat) {
     };
 }
 
-app.use(express.json({ limit: "256kb" }));
+app.use(express.json({ limit: "20mb" }));
 app.use(express.static("public"));
 
 app.get("/api/health", async (req, res) => {
@@ -419,6 +419,74 @@ app.delete("/api/chats/:id", async (req, res, next) => {
 
         res.json({ ok: true });
     } catch (error) {
+        next(error);
+    }
+});
+
+app.post("/api/chats/:id/analyze-file", async (req, res, next) => {
+    try {
+        const { name, mimeType, data, prompt } = req.body || {};
+
+        if (typeof name !== "string" || typeof mimeType !== "string" || typeof data !== "string") {
+            return res.status(400).json({ error: "A file name, type, and data are required." });
+        }
+
+        if (data.length > 16_000_000) {
+            return res.status(413).json({ error: "That file is too large. Maximum upload size is about 12 MB." });
+        }
+
+        const chat = await getChat(req.params.id);
+        if (!chat) return res.status(404).json({ error: "Chat not found" });
+
+        const allowedTypes = new Set([
+            "application/pdf", "text/plain", "text/markdown", "application/json",
+            "text/csv", "image/png", "image/jpeg", "image/webp"
+        ]);
+
+        if (!allowedTypes.has(mimeType)) {
+            return res.status(415).json({
+                error: "That file type is not supported yet. Try PDF, TXT, MD, CSV, JSON, PNG, JPG, or WEBP."
+            });
+        }
+
+        const cleanPrompt = typeof prompt === "string" && prompt.trim()
+            ? prompt.trim()
+            : "Analyze this file and explain the important information clearly.";
+
+        const base64 = data.includes(",") ? data.split(",")[1] : data;
+        const parts = [{ text: cleanPrompt }];
+
+        if (mimeType.startsWith("text/") || mimeType === "application/json") {
+            const textContent = Buffer.from(base64, "base64").toString("utf8");
+            if (textContent.length > 200_000) {
+                return res.status(413).json({ error: "That text file is too large to analyze." });
+            }
+            parts.push({ text: `FILE CONTENT (filename: ${name}):\n\n${textContent}` });
+        } else {
+            parts.push({ inlineData: { mimeType, data: base64 } });
+        }
+
+        const history = await getChat(req.params.id);
+        const contents = history.messages.map(item => ({
+            role: item.role === "assistant" ? "model" : "user",
+            parts: [{ text: item.content }]
+        }));
+        contents.push({ role: "user", parts });
+
+        const response = await ai.models.generateContent({
+            model: "gemini-3.6-flash",
+            contents,
+            config: { systemInstruction: SYSTEM_INSTRUCTION }
+        });
+
+        const answer = response.text || "I couldn't extract anything useful from that file.";
+
+        await appendUserMessage(req.params.id, `[Attached file: ${name}]\n\n${cleanPrompt}`);
+        await appendAssistantMessage(req.params.id, answer);
+
+        res.json({ answer });
+    } catch (error) {
+        console.error("File analysis error:", error);
         next(error);
     }
 });
