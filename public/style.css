@@ -153,6 +153,7 @@ button {
     font-weight: 500;
 }
 
+.chat-rename,
 .chat-delete {
     width: 28px;
     height: 30px;
@@ -168,11 +169,14 @@ button {
     transition: opacity 0.15s ease, background 0.15s ease, color 0.15s ease;
 }
 
+.chat-item-wrapper:hover .chat-rename,
 .chat-item-wrapper:hover .chat-delete,
+.chat-item-wrapper:focus-within .chat-rename,
 .chat-item-wrapper:focus-within .chat-delete {
     opacity: 1;
 }
 
+.chat-rename:hover,
 .chat-delete:hover {
     background: var(--ink-soft);
     color: var(--cyan);
