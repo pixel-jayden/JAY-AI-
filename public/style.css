@@ -869,3 +869,23 @@ textarea::placeholder {
         text-align: left;
     }
 }
+
+
+.file-chip {
+    display: inline-flex;
+    align-items: center;
+    max-width: 220px;
+    padding: 6px 10px;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    color: var(--paper-dim);
+    font-size: 12px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    background: var(--ink-soft);
+}
+
+@media (max-width: 600px) {
+    .file-chip { max-width: 140px; }
+}
