@@ -1,4 +1,7 @@
 const input = document.getElementById("messageInput");
+const fileInput = document.getElementById("fileInput");
+const attachButton = document.getElementById("attachButton");
+const fileChip = document.getElementById("fileChip");
 const sendButton = document.getElementById("sendButton");
 const messagesEl = document.getElementById("messages");
 const newChatButton = document.getElementById("newChat");
@@ -20,6 +23,7 @@ marked.setOptions({ breaks: true });
 let currentChatId = null;
 let isStreaming = false;
 let abortController = null;
+let selectedFile = null;
 
 init();
 
@@ -157,7 +161,7 @@ async function sendMessage() {
     if (isStreaming) return;
 
     const text = input.value.trim();
-    if (!text) return;
+    if (!text && !selectedFile) return;
 
     let accumulated = "";
     let bubble = null;
@@ -172,6 +176,39 @@ async function sendMessage() {
 
         const welcome = document.querySelector(".welcome");
         if (welcome) welcome.remove();
+
+        const file = selectedFile;
+
+        if (file) {
+            addUserMessage(text || `Attached: ${file.name}`);
+            input.value = "";
+            autoResizeTextarea();
+            clearSelectedFile();
+            setStreamingState(true);
+
+            bubble = addAIMessageContainer();
+            addTypingLabel(bubble);
+
+            const dataUrl = await readFileAsDataUrl(file);
+            const res = await fetch(`/api/chats/${currentChatId}/analyze-file`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    name: file.name,
+                    mimeType: file.type || "application/octet-stream",
+                    data: dataUrl,
+                    prompt: text || "Analyze this file and explain the important information clearly."
+                })
+            });
+
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(data.error || "File analysis failed");
+
+            accumulated = data.answer || "";
+            renderMarkdownInto(bubble, accumulated);
+            scrollToBottom();
+            return;
+        }
 
         addUserMessage(text);
         input.value = "";
@@ -219,7 +256,7 @@ async function sendMessage() {
                     renderMarkdownInto(bubble, accumulated);
                     scrollToBottom();
                 } else if (parsed.event === "error") {
-                    renderMarkdownInto(bubble, "Sorry, something went wrong talking to Gemini. 😕");
+                    renderMarkdownInto(bubble, parsed.data.error || "JAY AI could not complete that request.");
                 }
             }
         }
@@ -235,12 +272,7 @@ async function sendMessage() {
             }
         } else {
             console.error("Send message error:", error);
-            if (bubble) {
-                renderMarkdownInto(
-                    bubble,
-                    "Sorry, something went wrong while connecting to JAY AI. Please try again."
-                );
-            }
+            if (bubble) renderMarkdownInto(bubble, error.message || "Something went wrong. Please try again.");
         }
     } finally {
         setStreamingState(false);
@@ -250,6 +282,41 @@ async function sendMessage() {
         setActiveChatItem(currentChatId);
     }
 }
+
+function readFileAsDataUrl(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = () => reject(new Error("Could not read that file."));
+        reader.readAsDataURL(file);
+    });
+}
+
+function clearSelectedFile() {
+    selectedFile = null;
+    fileInput.value = "";
+    fileChip.hidden = true;
+    fileChip.textContent = "";
+}
+
+attachButton.addEventListener("click", () => fileInput.click());
+
+fileInput.addEventListener("change", () => {
+    const file = fileInput.files?.[0];
+    if (!file) return;
+
+    if (file.size > 12 * 1024 * 1024) {
+        alert("That file is too large. Maximum size is 12 MB.");
+        clearSelectedFile();
+        return;
+    }
+
+    selectedFile = file;
+    fileChip.textContent = `📎 ${file.name}`;
+    fileChip.hidden = false;
+    input.focus();
+});
+
 
 function parseSSEEvent(raw) {
     if (!raw.trim()) return null;
