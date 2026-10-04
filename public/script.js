@@ -2,6 +2,10 @@ const input = document.getElementById("messageInput");
 const fileInput = document.getElementById("fileInput");
 const attachButton = document.getElementById("attachButton");
 const fileChip = document.getElementById("fileChip");
+const fileIcon = document.getElementById("fileIcon");
+const fileName = document.getElementById("fileName");
+const fileSize = document.getElementById("fileSize");
+const fileRemove = document.getElementById("fileRemove");
 const sendButton = document.getElementById("sendButton");
 const messagesEl = document.getElementById("messages");
 const newChatButton = document.getElementById("newChat");
@@ -296,8 +300,36 @@ function clearSelectedFile() {
     selectedFile = null;
     fileInput.value = "";
     fileChip.hidden = true;
-    fileChip.textContent = "";
+    fileName.textContent = "";
+    fileSize.textContent = "";
+    fileIcon.textContent = "📎";
 }
+
+function formatFileSize(bytes) {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function getFileIcon(file) {
+    if (file.type === "application/pdf") return "📕";
+    if (file.type.startsWith("image/")) return "🖼️";
+    if (file.type === "text/csv") return "📊";
+    if (file.type === "application/json") return "🧾";
+    if (file.type === "text/markdown") return "📝";
+    if (file.type === "text/plain") return "📄";
+    return "📎";
+}
+
+function showSelectedFile(file) {
+    selectedFile = file;
+    fileIcon.textContent = getFileIcon(file);
+    fileName.textContent = file.name;
+    fileSize.textContent = formatFileSize(file.size);
+    fileChip.hidden = false;
+}
+
+fileRemove.addEventListener("click", clearSelectedFile);
 
 attachButton.addEventListener("click", () => fileInput.click());
 
@@ -311,9 +343,7 @@ fileInput.addEventListener("change", () => {
         return;
     }
 
-    selectedFile = file;
-    fileChip.textContent = `📎 ${file.name}`;
-    fileChip.hidden = false;
+    showSelectedFile(file);
     input.focus();
 });
 
