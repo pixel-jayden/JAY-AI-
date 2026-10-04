@@ -513,7 +513,7 @@ function renderSourcesInto(bubble, sources) {
 
     const validSources = sources.filter(source => {
         try {
-            return /^https?:\\/\\//i.test(source.url) && source.title;
+            return /^https?:\/\//i.test(source.url) && source.title;
         } catch {
             return false;
         }
