@@ -582,8 +582,17 @@ app.post("/api/chats/:id/stream", async (req, res, next) => {
         const sources = new Map();
         let clientGone = false;
 
-        req.on("close", () => {
+        // The request can close normally after its body is received.
+        // Only treat the connection as gone when the response itself closes
+        // before we have finished sending it.
+        req.on("aborted", () => {
             clientGone = true;
+        });
+
+        res.on("close", () => {
+            if (!res.writableEnded) {
+                clientGone = true;
+            }
         });
 
         try {
