@@ -9,6 +9,7 @@ dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const MAX_MESSAGE_LENGTH = 12000;
 
 const ai = new GoogleGenAI({
     apiKey: process.env.GEMINI_API_KEY
@@ -22,20 +23,41 @@ readability. Be concise by default, but go deeper when the user asks for detail.
 
 const DATA_DIR = path.join(process.cwd(), "data");
 const DATA_FILE = path.join(DATA_DIR, "chats.json");
+const TEMP_FILE = path.join(DATA_DIR, "chats.tmp.json");
 
 async function loadChats() {
     try {
         const raw = await fs.readFile(DATA_FILE, "utf-8");
-        return JSON.parse(raw);
+        const db = JSON.parse(raw);
+
+        if (!db || typeof db !== "object" || !db.chats || typeof db.chats !== "object") {
+            throw new Error("Chat database has an invalid structure.");
+        }
+
+        return db;
     } catch (err) {
         if (err.code === "ENOENT") return { chats: {} };
+
+        if (err instanceof SyntaxError) {
+            throw new Error("Chat database contains invalid JSON.");
+        }
+
         throw err;
     }
 }
 
-async function saveChats(db) {
-    await fs.mkdir(DATA_DIR, { recursive: true });
-    await fs.writeFile(DATA_FILE, JSON.stringify(db, null, 2), "utf-8");
+let saveQueue = Promise.resolve();
+
+function saveChats(db) {
+    const snapshot = JSON.stringify(db, null, 2);
+
+    saveQueue = saveQueue.then(async () => {
+        await fs.mkdir(DATA_DIR, { recursive: true });
+        await fs.writeFile(TEMP_FILE, snapshot, "utf-8");
+        await fs.rename(TEMP_FILE, DATA_FILE);
+    });
+
+    return saveQueue;
 }
 
 function summarize(chat) {
@@ -46,7 +68,11 @@ function summarize(chat) {
     };
 }
 
-app.use(express.json());
+function getErrorMessage(error) {
+    return error instanceof Error ? error.message : "Unknown server error";
+}
+
+app.use(express.json({ limit: "256kb" }));
 app.use(express.static("public"));
 
 app.get("/api/chats", async (req, res) => {
@@ -54,13 +80,18 @@ app.get("/api/chats", async (req, res) => {
     const list = Object.values(db.chats)
         .sort((a, b) => b.updatedAt - a.updatedAt)
         .map(summarize);
+
     res.json(list);
 });
 
 app.get("/api/chats/:id", async (req, res) => {
     const db = await loadChats();
     const chat = db.chats[req.params.id];
-    if (!chat) return res.status(404).json({ error: "Chat not found" });
+
+    if (!chat) {
+        return res.status(404).json({ error: "Chat not found" });
+    }
+
     res.json(chat);
 });
 
@@ -78,21 +109,36 @@ app.post("/api/chats", async (req, res) => {
     };
 
     await saveChats(db);
-    res.json(db.chats[id]);
+    res.status(201).json(db.chats[id]);
 });
 
 app.delete("/api/chats/:id", async (req, res) => {
     const db = await loadChats();
+    const chat = db.chats[req.params.id];
+
+    if (!chat) {
+        return res.status(404).json({ error: "Chat not found" });
+    }
+
     delete db.chats[req.params.id];
     await saveChats(db);
+
     res.json({ ok: true });
 });
 
 app.post("/api/chats/:id/stream", async (req, res) => {
-    const { message } = req.body;
+    const message = typeof req.body?.message === "string"
+        ? req.body.message.trim()
+        : "";
 
-    if (!message || !message.trim()) {
+    if (!message) {
         return res.status(400).json({ error: "No message provided" });
+    }
+
+    if (message.length > MAX_MESSAGE_LENGTH) {
+        return res.status(413).json({
+            error: `Message is too long. Maximum length is ${MAX_MESSAGE_LENGTH.toLocaleString()} characters.`
+        });
     }
 
     const db = await loadChats();
@@ -103,24 +149,34 @@ app.post("/api/chats/:id/stream", async (req, res) => {
     }
 
     chat.messages.push({ role: "user", content: message });
+
     if (chat.messages.length === 1) {
         chat.title = message.slice(0, 40) + (message.length > 40 ? "…" : "");
     }
+
     chat.updatedAt = Date.now();
     await saveChats(db);
 
     res.writeHead(200, {
-        "Content-Type": "text/event-stream",
-        "Cache-Control": "no-cache",
-        Connection: "keep-alive"
+        "Content-Type": "text/event-stream; charset=utf-8",
+        "Cache-Control": "no-cache, no-transform",
+        Connection: "keep-alive",
+        "X-Accel-Buffering": "no"
     });
 
+    if (typeof res.flushHeaders === "function") {
+        res.flushHeaders();
+    }
+
     const send = (event, data) => {
-        res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+        if (!res.writableEnded && !res.destroyed) {
+            res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+        }
     };
 
     let full = "";
     let clientGone = false;
+
     req.on("close", () => {
         clientGone = true;
     });
@@ -141,7 +197,9 @@ app.post("/api/chats/:id/stream", async (req, res) => {
 
         for await (const chunk of stream) {
             if (clientGone) break;
+
             const piece = chunk.text;
+
             if (piece) {
                 full += piece;
                 send("chunk", { text: piece });
@@ -154,21 +212,44 @@ app.post("/api/chats/:id/stream", async (req, res) => {
         }
     } catch (error) {
         console.error("Gemini stream error:", error);
+
         if (!clientGone) {
-            send("error", { error: "Gemini request failed" });
+            send("error", {
+                error: "JAY AI could not complete that request. Please try again."
+            });
             res.end();
         }
     } finally {
         if (full) {
-            const fresh = await loadChats();
-            const freshChat = fresh.chats[req.params.id];
-            if (freshChat) {
-                freshChat.messages.push({ role: "assistant", content: full });
-                freshChat.updatedAt = Date.now();
-                await saveChats(fresh);
+            try {
+                const fresh = await loadChats();
+                const freshChat = fresh.chats[req.params.id];
+
+                if (freshChat) {
+                    freshChat.messages.push({
+                        role: "assistant",
+                        content: full
+                    });
+                    freshChat.updatedAt = Date.now();
+                    await saveChats(fresh);
+                }
+            } catch (saveError) {
+                console.error("Failed to save assistant response:", saveError);
             }
         }
     }
+});
+
+app.use((err, req, res, next) => {
+    console.error("Unhandled server error:", err);
+
+    if (res.headersSent) {
+        return next(err);
+    }
+
+    res.status(500).json({
+        error: "JAY AI encountered a server error. Please try again."
+    });
 });
 
 app.listen(PORT, "0.0.0.0", () => {
