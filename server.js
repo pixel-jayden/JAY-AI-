@@ -23,7 +23,11 @@ const SYSTEM_INSTRUCTION = `You are JAY AI, a helpful, friendly assistant built 
 You are NOT Gemini or a Google product in the eyes of the user — if asked who you are,
 say you are JAY AI. Keep answers clear and well-formatted using Markdown
 (headings, bullet lists, and fenced code blocks with a language tag) when it helps
-readability. Be concise by default, but go deeper when the user asks for detail.`;
+readability. Be concise by default, but go deeper when the user asks for detail.
+Use web search when the user asks for current or recent information, news, prices,
+schedules, live results, or facts where up-to-date information would improve the answer.
+When web search is used, rely on the retrieved sources and make the answer clear about
+what information came from the web.`;
 
 const DATA_DIR = path.join(process.cwd(), "data");
 const DATA_FILE = path.join(DATA_DIR, "chats.json");
@@ -575,6 +579,7 @@ app.post("/api/chats/:id/stream", async (req, res, next) => {
         };
 
         let full = "";
+        const sources = new Map();
         let clientGone = false;
 
         req.on("close", () => {
@@ -591,7 +596,8 @@ app.post("/api/chats/:id/stream", async (req, res, next) => {
                 model: "gemini-3.6-flash",
                 contents,
                 config: {
-                    systemInstruction: SYSTEM_INSTRUCTION
+                    systemInstruction: SYSTEM_INSTRUCTION,
+                    tools: [{ googleSearch: {} }]
                 }
             });
 
@@ -604,9 +610,33 @@ app.post("/api/chats/:id/stream", async (req, res, next) => {
                     full += piece;
                     send("chunk", { text: piece });
                 }
+
+                const groundingChunks = chunk.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
+                for (const groundingChunk of groundingChunks) {
+                    const web = groundingChunk.web;
+                    if (!web?.uri || !/^https?:\/\//i.test(web.uri)) continue;
+
+                    if (!sources.has(web.uri)) {
+                        let title = web.title || "";
+                        try {
+                            title = title || new URL(web.uri).hostname.replace(/^www\./, "");
+                        } catch {}
+
+                        sources.set(web.uri, {
+                            title,
+                            url: web.uri
+                        });
+                    }
+                }
             }
 
             if (!clientGone) {
+                const sourceList = [...sources.values()].slice(0, 8);
+
+                if (sourceList.length) {
+                    send("sources", { sources: sourceList });
+                }
+
                 send("done", { fullText: full });
                 res.end();
             }
@@ -622,6 +652,15 @@ app.post("/api/chats/:id/stream", async (req, res, next) => {
         } finally {
             if (full) {
                 try {
+                    const sourceList = [...sources.values()].slice(0, 8);
+
+                    if (sourceList.length) {
+                        full += "\n\n---\n\n**Sources**\n" +
+                            sourceList
+                                .map(source => `- [${source.title}](${source.url})`)
+                                .join("\n");
+                    }
+
                     await appendAssistantMessage(req.params.id, full);
                 } catch (saveError) {
                     console.error("Failed to save assistant response:", saveError);
