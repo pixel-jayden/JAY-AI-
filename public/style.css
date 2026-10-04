@@ -885,6 +885,15 @@ textarea::placeholder {
     flex-shrink: 0;
 }
 
+.file-thumb {
+    width: 28px;
+    height: 28px;
+    object-fit: cover;
+    border-radius: 7px;
+    flex-shrink: 0;
+    border: 1px solid var(--line);
+}
+
 .file-icon {
     width: 28px;
     height: 28px;
