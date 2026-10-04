@@ -46,6 +46,19 @@ async function refreshChatList() {
 
             item.addEventListener("click", () => loadChat(chat.id));
 
+            const renameButton = document.createElement("button");
+            renameButton.className = "chat-rename";
+            renameButton.type = "button";
+            renameButton.title = "Rename chat";
+            renameButton.setAttribute("aria-label", "Rename chat");
+            renameButton.textContent = "✎";
+            renameButton.addEventListener("click", event => {
+                event.stopPropagation();
+                renameChat(chat.id, chat.title || "New chat");
+            });
+
+            wrapper.appendChild(renameButton);
+
             const deleteButton = document.createElement("button");
             deleteButton.className = "chat-delete";
             deleteButton.type = "button";
@@ -363,6 +376,38 @@ function closeMobileSidebar() {
 }
 
 
+async function renameChat(id, currentTitle) {
+    if (isStreaming) return;
+
+    const nextTitle = window.prompt("Rename chat:", currentTitle);
+    if (nextTitle === null) return;
+
+    const title = nextTitle.trim();
+    if (!title) {
+        alert("Chat name cannot be empty.");
+        return;
+    }
+
+    try {
+        const res = await fetch(`/api/chats/${id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ title })
+        });
+
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+            throw new Error(data.error || "Failed to rename chat");
+        }
+
+        await refreshChatList();
+        setActiveChatItem(currentChatId);
+    } catch (error) {
+        console.error("Could not rename chat:", error);
+        alert(error.message || "Could not rename the chat. Please try again.");
+    }
+}
+
 async function deleteChat(id) {
     if (isStreaming) return;
 
@@ -457,6 +502,12 @@ modalBackdrop.addEventListener("click", event => {
     if (event.target === modalBackdrop) closeModal();
 });
 document.addEventListener("keydown", event => {
+    if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        if (!isStreaming) newChatButton.click();
+        return;
+    }
+
     if (event.key === "Escape") {
         closeModal();
         menuDropdown.hidden = true;
