@@ -142,6 +142,7 @@ newChatButton.addEventListener("click", async () => {
         showWelcome();
         input.value = "";
         autoResizeTextarea();
+        clearSelectedFile();
         input.focus();
         closeMobileSidebar();
 
@@ -200,9 +201,9 @@ async function sendMessage() {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     name: file.name,
-                    mimeType: file.type || "application/octet-stream",
+                    mimeType: file.type || getMimeTypeFromName(file.name),
                     data: dataUrl,
-                    prompt: text || "Analyze this file and explain the important information clearly."
+                    prompt: text || getDefaultFilePrompt(file)
                 })
             });
 
@@ -314,13 +315,45 @@ function formatFileSize(bytes) {
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+function getMimeTypeFromName(name) {
+    const lower = name.toLowerCase();
+    if (lower.endsWith(".pdf")) return "application/pdf";
+    if (lower.endsWith(".docx")) return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+    if (lower.endsWith(".csv")) return "text/csv";
+    if (lower.endsWith(".md")) return "text/markdown";
+    if (lower.endsWith(".json")) return "application/json";
+    if (lower.endsWith(".txt")) return "text/plain";
+    return "application/octet-stream";
+}
+
+function getDefaultFilePrompt(file) {
+    if (file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf")) {
+        return "Analyze this PDF and explain the important information clearly. Summarize the main points, structure, and any important conclusions.";
+    }
+
+    if (
+        file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
+        file.name.toLowerCase().endsWith(".docx")
+    ) {
+        return "Analyze this document and explain the important information clearly. Summarize the main points, structure, and key conclusions.";
+    }
+
+    return "Analyze this file and explain the important information clearly.";
+}
+
 function getFileIcon(file) {
-    if (file.type === "application/pdf") return "📕";
+    const name = file.name.toLowerCase();
+
+    if (file.type === "application/pdf" || name.endsWith(".pdf")) return "📕";
+    if (
+        file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
+        name.endsWith(".docx")
+    ) return "📘";
     if (file.type.startsWith("image/")) return "🖼️";
-    if (file.type === "text/csv") return "📊";
-    if (file.type === "application/json") return "🧾";
-    if (file.type === "text/markdown") return "📝";
-    if (file.type === "text/plain") return "📄";
+    if (file.type === "text/csv" || name.endsWith(".csv")) return "📊";
+    if (file.type === "application/json" || name.endsWith(".json")) return "🧾";
+    if (file.type === "text/markdown" || name.endsWith(".md")) return "📝";
+    if (file.type === "text/plain" || name.endsWith(".txt")) return "📄";
     return "📎";
 }
 
@@ -352,6 +385,26 @@ fileInput.addEventListener("change", () => {
 
     if (file.size > 12 * 1024 * 1024) {
         alert("That file is too large. Maximum size is 12 MB.");
+        clearSelectedFile();
+        return;
+    }
+
+    const supported = [
+        "application/pdf",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "text/plain",
+        "text/markdown",
+        "text/csv",
+        "application/json",
+        "image/png",
+        "image/jpeg",
+        "image/webp"
+    ];
+
+    const supportedByExtension = /.(pdf|docx|txt|md|csv|json|png|jpe?g|webp)$/i.test(file.name);
+
+    if (!supported.includes(file.type) && !supportedByExtension) {
+        alert("Unsupported file. Try PDF, DOCX, TXT, MD, CSV, JSON, PNG, JPG, or WEBP.");
         clearSelectedFile();
         return;
     }
@@ -534,6 +587,7 @@ async function deleteChat(id) {
             showWelcome();
             input.value = "";
             autoResizeTextarea();
+            clearSelectedFile();
         }
 
         await refreshChatList();
