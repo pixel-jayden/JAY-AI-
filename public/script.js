@@ -3,6 +3,7 @@ const fileInput = document.getElementById("fileInput");
 const attachButton = document.getElementById("attachButton");
 const fileChip = document.getElementById("fileChip");
 const fileIcon = document.getElementById("fileIcon");
+const fileThumb = document.getElementById("fileThumb");
 const fileName = document.getElementById("fileName");
 const fileSize = document.getElementById("fileSize");
 const fileRemove = document.getElementById("fileRemove");
@@ -303,6 +304,8 @@ function clearSelectedFile() {
     fileName.textContent = "";
     fileSize.textContent = "";
     fileIcon.textContent = "📎";
+    fileThumb.hidden = true;
+    fileThumb.removeAttribute("src");
 }
 
 function formatFileSize(bytes) {
@@ -326,6 +329,16 @@ function showSelectedFile(file) {
     fileIcon.textContent = getFileIcon(file);
     fileName.textContent = file.name;
     fileSize.textContent = formatFileSize(file.size);
+
+    if (file.type.startsWith("image/")) {
+        fileThumb.src = URL.createObjectURL(file);
+        fileThumb.hidden = false;
+        fileThumb.onload = () => URL.revokeObjectURL(fileThumb.src);
+    } else {
+        fileThumb.hidden = true;
+        fileThumb.removeAttribute("src");
+    }
+
     fileChip.hidden = false;
 }
 
